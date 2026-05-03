@@ -1,21 +1,25 @@
-# Pi-CCTV / Surveillance System
+# 🍓 Pi-CCTV / Surveillance System 🦀
 
-A lightweight, high-performance CCTV streaming server built with **Rust**. This system automatically discovers connected cameras and streams video via a web interface using **FFmpeg** and **Axum**.
+A lightweight, high-performance CCTV streaming server built with **Rust** for SBC devices like **Orange Pi Zero 2W** and **Raspberry Pi**.
 
-## 🛠 Features
-*   **Automatic Camera Discovery**: Automatically scans `/dev/video*` to find compatible devices.
-*   **High Performance**: Leveraging Rust's safety and speed for efficient video handling.
-*   **Web Interface**: Minimalist dashboard to view streams directly in your browser.
-*   **Low Latency**: Uses FFmpeg with optimized arguments for near real-time monitoring.
+## 🚀 Overview
+This system automatically discovers connected USB cameras and streams video via a modern web interface. It’s designed to be fast, memory-safe, and easy to deploy.
 
-## 🏗 Tech Stack
-*   **Backend**: Rust (Axum, Tokio).
-*   **Streaming Engine**: FFmpeg.
-*   **Frontend**: HTML/CSS/JavaScript (Vanilla or Minimalist frameworks).
+## 🛠 Tech Stack
+*   **Language**: ![Rust](https://img.shields.io/badge/rust-%23E32F26.svg?style=flat&logo=rust&logoColor=white) **Rust** (Tokio, Axum)
+*   **Backend**: **Axum** for high-performance asynchronous networking
+*   **Streaming Engine**: **FFmpeg** for real-time video processing
+*   **OS Support**: **DietPi**, Armbian, and other Linux distributions
 
-## 🚀 Quick Start (on Raspberry Pi / Orange Pi)
+## 🌟 Key Features
+*   🔍 **Auto-Discovery**: Scans `/dev/video*` to find your Logitech or other USB cameras automatically.
+*   ⚡ **Low Latency**: Optimized FFmpeg pipes for near real-time streaming.
+*   💻 **Web Dashboard**: A minimalist "Raspberry-style" interface to manage your streams.
+*   📦 **Static Binary**: Can be compiled as a single file that runs without any dependencies (using `musl`).
 
-### Prerequisites
-Make sure you have `ffmpeg` and `v4l-utils` installed:
+## 🔧 Installation & Usage
+
+### 1. Prepare your Orange/Raspberry Pi
+Install the necessary system tools:
 ```bash
 sudo apt update && sudo apt install -y ffmpeg v4l-utils
