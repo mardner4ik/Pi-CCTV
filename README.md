@@ -1,15 +1,7 @@
-git clone https://github.com/mardner4ik/Pi-CCTV.git
-   cd Pi-Ось шаблон для твого **README.md**, який виглядає професійно, мінімалістично та підкреслює технічний стек твого проекту.
-
-Щоб додати фотографії саме твого пристрою, просто заміни шлях у тегах `<img>`.
-
----
-
 # 🍓 Pi CCTV
 
 ![Status](https://img.shields.io/badge/Status-In--Development-e91e63?style=for-the-badge)
 ![Tech Stack](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)
-![Tech Stack](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
 
 A high-performance, lightweight video surveillance system designed for **Raspberry Pi**. Built with a **Rust** backend for speed and safety, and a minimalist **Raspberry-themed** web interface.
 
