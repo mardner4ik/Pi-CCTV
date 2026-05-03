@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pi CCTV</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono&display=swap');
+
+  :root {
+    --bg: #0a0a0c;
+    --panel: #111114;
+    --border: #221a1f;
+    --accent: #e91e63;
+    --accent-dim: #e91e6322;
+    --text: #e0e0e0;
+    --text-dim: #666666;
+    --header-h: 60px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+
+  header {
+    height: var(--header-h);
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
+  }
+
+  #clock { color: var(--text); }
+
+  main { padding: 24px; }
+
+  #grid {
+    display: grid;
+    gap: 16px;
+  }
+
+  .grid-1 { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .grid-many { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+
+  .cam-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cam-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 10;
+    background: rgba(10, 10, 12, 0.6);
+    backdrop-filter: blur(4px);
+  }
+
+  .cam-id { color: var(--accent); }
+  
+  .rec-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text);
+  }
+
+  .rec-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .cam-video-wrap {
+    aspect-ratio: 16/9;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .cam-video-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .cam-footer {
+    padding: 10px 14px;
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    color: var(--text-dim);
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+  }
+
+  .no-signal {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 60vh;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+
+  @media (max-width: 768px) {
+    .grid-2, .grid-3, .grid-4, .grid-many { grid-template-columns: 1fr; }
+    header { padding: 0 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Pi CCTV</div>
+  <div class="status-bar">
+    <div class="status-dot"></div>
+    <span id="cam-count">0 UNITS</span>
+    <span id="clock">00:00:00</span>
+  </div>
+</header>
+
+<main>
+  <div id="grid"></div>
+</main>
+
+<script>
+const grid = document.getElementById('grid');
+const camCountEl = document.getElementById('cam-count');
+const clockEl = document.getElementById('clock');
+
+function updateClock() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  clockEl.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function getGridClass(count) {
+  if (count === 1) return 'grid-1';
+  if (count === 2) return 'grid-2';
+  if (count === 3) return 'grid-3';
+  if (count === 4) return 'grid-4';
+  return 'grid-many';
+}
+
+function makeCard(cam) {
+  const card = document.createElement('div');
+  card.className = 'cam-card';
+  card.dataset.id = cam.id;
+
+  card.innerHTML = `
+    <div class="cam-header">
+      <span class="cam-id">${cam.id.toUpperCase()}</span>
+      <div class="rec-indicator">
+        <div class="rec-dot"></div>
+        <span>LIVE</span>
+      </div>
+    </div>
+    <div class="cam-video-wrap">
+      <img
+        src="/stream/${cam.id}"
+        alt="${cam.name}"
+        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+      />
+      <div class="no-signal" style="display:none;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M1 1l22 22M15 10.2V5.4a1 1 0 00-1.7-.7L10 8.1M3.5 3.5l10.2 10.2L13 14.4a1 1 0 001.7.7l5.3-3.8a1 1 0 000-1.6L15 6"/>
+        </svg>
+        <span>SIGNAL LOST</span>
+      </div>
+    </div>
+    <div class="cam-footer">
+      <span>${cam.name}</span>
+      <span>CAM_${cam.id.slice(-3)}</span>
+    </div>
+  `;
+
+  return card;
+}
+
+let knownIds = new Set();
+
+async function refresh() {
+  try {
+    const res = await fetch('/api/cameras');
+    const cameras = await res.json();
+
+    camCountEl.textContent = `${cameras.length} UNIT${cameras.length !== 1 ? 'S' : ''}`;
+
+    const currentIds = new Set(cameras.map(c => c.id));
+
+    for (const id of knownIds) {
+      if (!currentIds.has(id)) {
+        const el = grid.querySelector(`[data-id="${id}"]`);
+        if (el) el.remove();
+        knownIds.delete(id);
+      }
+    }
+
+    if (cameras.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <p>NO ACTIVE SOURCES FOUND</p>
+        </div>`;
+      knownIds.clear();
+      return;
+    }
+
+    const emptyState = grid.querySelector('.empty-state');
+    if (emptyState) emptyState.remove();
+
+    grid.className = getGridClass(cameras.length);
+
+    for (const cam of cameras) {
+      if (!knownIds.has(cam.id)) {
+        grid.appendChild(makeCard(cam));
+        knownIds.add(cam.id);
+      }
+    }
+
+  } catch (e) {
+    console.warn('System error:', e);
+  }
+}
+
+refresh();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>
