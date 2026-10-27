@@ -1,25 +1,127 @@
-# 🍓 Pi-CCTV / Surveillance System 🦀
+# PiCCTV
 
-A lightweight, high-performance CCTV streaming server built with **Rust** for SBC devices like **Orange Pi Zero 2W** and **Raspberry Pi**.
+Легкий сервер відеоспостереження на **Rust** (Tokio + Axum) для Orange Pi, Raspberry Pi та ПК. Показує USB-камери, дешеві Wi-Fi камери **A9**, а також RTSP / HTTP-MJPEG камери в одному вебінтерфейсі. Без бази даних і хмари — один бінарник.
 
-## 🚀 Overview
-This system automatically discovers connected USB cameras and streams video via a modern web interface. It’s designed to be fast, memory-safe, and easy to deploy.
+## Можливості
 
-## 🛠 Tech Stack
-*   **Language**: ![Rust](https://img.shields.io/badge/rust-%23E32F26.svg?style=flat&logo=rust&logoColor=white) **Rust** (Tokio, Axum)
-*   **Backend**: **Axum** for high-performance asynchronous networking
-*   **Streaming Engine**: **FFmpeg** for real-time video processing
-*   **OS Support**: **DietPi**, Armbian, and other Linux distributions
+- **Вхід за паролем і панель керування.** Відкриваєте сайт, вводите пароль і потрапляєте в панель: вкладка «Камери» (перегляд) та «Керування» (додавання, редагування, перевірка, вимкнення й видалення камер).
+- **Камери A9 (Wi-Fi mini).** Рідна підтримка без ffmpeg: протоколи iLnk/PPPP (UDP 32108) і старий UDP 8080 визначаються автоматично. Пошук камер у мережі однією кнопкою.
+- **RTSP та HTTP-MJPEG** камери. HTTP-MJPEG передається без перекодування.
+- **USB-камери** з автовиявленням `/dev/video*` через ioctl V4L2 (без `v4l2-ctl`). Апаратні кодеки та службові вузли відсіюються; зайве можна приховати у панелі.
+- **Економія CPU.** Один процес на камеру незалежно від кількості глядачів; запуск лише за наявності глядачів; MJPEG з камери проходить без перекодування; запам'ятовується робочий режим; ffmpeg працює з нижчим пріоритетом.
+- Знімки, повноекранний режим, фокус, сітка 1/2/3, мобільний інтерфейс, українська та англійська мови.
 
-## 🌟 Key Features
-*   🔍 **Auto-Discovery**: Scans `/dev/video*` to find your Logitech or other USB cameras automatically.
-*   ⚡ **Low Latency**: Optimized FFmpeg pipes for near real-time streaming.
-*   💻 **Web Dashboard**: A minimalist "Raspberry-style" interface to manage your streams.
-*   📦 **Static Binary**: Can be compiled as a single file that runs without any dependencies (using `musl`).
+## Швидкий старт
 
-## 🔧 Installation & Usage
-
-### 1. Prepare your Orange/Raspberry Pi
-Install the necessary system tools:
 ```bash
-sudo apt update && sudo apt install -y ffmpeg v4l-utils
+sudo apt update && sudo apt install -y ffmpeg
+sudo usermod -aG video "$USER"
+
+cargo build --release
+PICCTV_PASS=change-me ./target/release/surveillance
+```
+
+Відкрийте `http://<адреса-пристрою>:8080`, введіть пароль. Без `PICCTV_PASS` панель керування вимкнена, а перегляд відкритий усім у мережі.
+
+Немає камери? `PICCTV_DEMO=1` додає тестову.
+
+### Сервіс systemd
+
+```bash
+sudo install -m755 target/release/surveillance /usr/local/bin/
+sudo install -m600 deploy/pi-cctv.env /etc/pi-cctv.env
+sudo install -m644 deploy/pi-cctv.service /etc/systemd/system/
+sudo systemctl enable --now pi-cctv
+journalctl -u pi-cctv -f
+```
+
+Налаштування камер зберігаються у `PICCTV_DATA` (`/var/lib/pi-cctv/cameras.json`, права 600).
+
+## Камера A9
+
+1. Увімкніть камеру. Вона працює як точка доступу (мережа на кшталт `A9_…`, `MiniCam…`) або підключена до вашого роутера через офіційний застосунок.
+2. Pi має бути **в одній мережі з камерою**: підключіть його до Wi-Fi камери або налаштуйте камеру на ваш роутер.
+3. «Керування → IP-камери → Знайти A9 у мережі», потім «Додати». Або «Додати камеру → A9 Wi-Fi» і вкажіть IP.
+4. Кнопка «Перевірити» показує реальний кадр до збереження.
+
+Особливості: камера обслуговує лише одну сесію одночасно, тому не тримайте відкритим офіційний застосунок. Камера намагається з'єднатися із хмарними серверами; за потреби заблокуйте їй вихідний трафік на роутері, локальний потік від цього не залежить. Пароль камери — `admin`.
+
+Протокол реалізовано за відкритими описами ([DavidVentura/cam-reverse](https://github.com/DavidVentura/cam-reverse), [HoffmannP/A9](https://github.com/HoffmannP/A9)). Різні партії A9 відрізняються прошивкою; якщо ваша не підключається, запустіть з `RUST_LOG=debug` і перегляньте журнал.
+
+## Orange Pi: `/dev/video0..2` не працюють
+
+На Orange Pi Zero 2W вузли `video0`, `video1`, `video2` зазвичай належать апаратному декодеру відео (cedrus) та іншим службовим пристроям, а не камерам. Раніше сервер приймав їх за камери. Тепер перевіряється `VIDIOC_QUERYCAP`: вузол має вміти захоплювати відео, не бути M2M-кодеком і мати формати зображення. Перелік усіх вузлів і причини відхилення видно в «Керування → USB-пристрої». USB-камера з'явиться там автоматично після підключення.
+
+## Налаштування (змінні оточення)
+
+| Змінна | За замовчуванням | Опис |
+|---|---|---|
+| `PICCTV_PORT` | `8080` | Порт |
+| `PICCTV_BIND` | `0.0.0.0` | Адреса прослуховування |
+| `PICCTV_PASS` | — | Пароль входу; вмикає панель керування |
+| `PICCTV_USER` | `admin` | Ім'я для HTTP Basic (VLC, Home Assistant) |
+| `PICCTV_DATA` | `picctv-data` | Каталог для `cameras.json` |
+| `PICCTV_SESSION_HOURS` | `168` | Тривалість сесії входу |
+| `PICCTV_RESOLUTION` | `1280x720` | Розмір для USB-камер |
+| `PICCTV_FPS` | `15` | Кадрів/с (1–60) |
+| `PICCTV_QUALITY` | `5` | Якість JPEG при перекодуванні, 2–31 (менше = краще) |
+| `PICCTV_MODE` | `auto` | USB: `auto`, `copy`, `transcode` |
+| `PICCTV_NET_WIDTH` | `0` | Зменшувати RTSP до цієї ширини (0 = без змін) |
+| `PICCTV_IDLE_SECS` | `10` | Скільки тримати потік після відходу останнього глядача |
+| `PICCTV_MAX_VIEWERS` | `8` | Глядачів на камеру |
+| `PICCTV_THREADS` | `2` | Робочі потоки Tokio |
+| `PICCTV_NAMES` | — | Імена USB-камер: `video0=Двір,video2=Гараж` |
+| `PICCTV_DEMO` | вимк. | Тестова камера |
+| `RUST_LOG` | `info` | Рівень журналу |
+
+## Зменшення навантаження
+
+- Камери з MJPEG (більшість USB) працюють у режимі `copy`: ~0% CPU.
+- A9 приймається й віддається напряму, ffmpeg не запускається.
+- RTSP з H.264 потребує декодування. Зменшіть `PICCTV_FPS` і `PICCTV_NET_WIDTH`, а в камері оберіть субпотік низької роздільної здатності.
+- Сітка при 4+ камерах запитує по 10 кадрів/с (`/stream/<id>?fps=10`), у режимі фокусу — повну частоту.
+
+## HTTP API
+
+| Endpoint | Опис |
+|---|---|
+| `GET /` | Вебінтерфейс |
+| `POST /api/login`, `POST /api/logout`, `GET /api/session` | Сесія |
+| `GET /api/cameras` | Список камер і стан |
+| `GET /stream/<id>[?fps=N]` | MJPEG-потік (`multipart/x-mixed-replace`) |
+| `GET /snapshot/<id>` | JPEG (`?download=1` для збереження) |
+| `GET /healthz` | Перевірка живості (без авторизації) |
+| `/api/admin/*` | Керування камерами (потрібні вхід і `PICCTV_PASS`) |
+
+Потоки та знімки приймають також HTTP Basic, наприклад `http://admin:пароль@pi:8080/stream/ip1`.
+
+## Безпека
+
+- Cookie сесії: `HttpOnly`, `SameSite=Strict`; є обмеження спроб входу за IP.
+- HTTP Basic і пароль входу йдуть відкритим текстом. Використовуйте довірену LAN, VPN або TLS reverse proxy (`PICCTV_BIND=127.0.0.1`).
+- URL камер із логіном і паролем зберігаються у `cameras.json` (права 600). ffmpeg обмежено протоколами rtsp/http, `file://` заборонено.
+
+## Вебінтерфейс (React)
+
+Вихідний код у `web/` (React + Vite), зібраний результат лежить у `static/` і вбудовується в бінарник, тому для `cargo build` Node.js не потрібен.
+
+```bash
+cd web
+npm install
+npm run build
+npm run dev
+```
+
+`npm run build` перезаписує `static/`, після чого перезберіть сервер (`cargo build --release`). `npm run dev` запускає dev-сервер із проксі на `http://localhost:8080` (інший бекенд: `PICCTV_BACKEND=http://адреса:порт npm run dev`).
+
+Структура: `src/pages` (Login, Live, Admin), `src/components` (Header, Modal, live/, admin/), `src/hooks`, `src/api`, `src/i18n`, `src/styles`. Тема світла або темна залежно від системи.
+
+## Тести
+
+```bash
+cargo test
+```
+
+## Ліцензія
+
+GPL-3.0, див. [LICENSE](LICENSE).
